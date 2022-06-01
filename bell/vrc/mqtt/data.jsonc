@@ -335,7 +335,7 @@
             "docs": "",
             "payload": [
                 {
-                    "key": "num_satellites ",
+                    "key": "num_satellites",
                     "type": "int",
                     "docs": "Number of visible satellites in use"
                 },
