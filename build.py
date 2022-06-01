@@ -5,6 +5,7 @@ import commentjson
 import jinja2
 
 THIS_DIR = os.path.abspath(os.path.dirname(__file__))
+MQTT_DIR = os.path.join(THIS_DIR, "bell", "vrc", "mqtt")
 
 
 def titleify(text: str) -> str:
@@ -45,12 +46,12 @@ def process_klass(klass: dict) -> List[dict]:
 
 def main() -> None:
     # setup jinja
-    template_loader = jinja2.FileSystemLoader(searchpath=THIS_DIR)
+    template_loader = jinja2.FileSystemLoader(searchpath=MQTT_DIR)
     template_env = jinja2.Environment(loader=template_loader)
 
     # load data
     print("Loading data")
-    with open(os.path.join(THIS_DIR, "data.jsonc"), "r") as fp:
+    with open(os.path.join(MQTT_DIR, "data.jsonc"), "r") as fp:
         topics = commentjson.load(fp)["topics"]
 
     # generate addtional class configuration
@@ -72,11 +73,17 @@ def main() -> None:
         klasses.extend(process_klass(topic))
 
     # generate python code
-    template = template_env.get_template("code.j2")
+    messages_template = template_env.get_template("messages.j2")
 
-    print("Rendering code template")
-    with open(os.path.join(THIS_DIR, "..", "mqtt_library.py"), "w") as fp:
-        fp.write(template.render(klasses=klasses, topics=topics))
+    print("Rendering messages template")
+    with open(os.path.join(MQTT_DIR, "messages.py"), "w") as fp:
+        fp.write(messages_template.render(klasses=klasses, topics=topics))
+
+    client_template = template_env.get_template("client.j2")
+
+    print("Rendering client template")
+    with open(os.path.join(MQTT_DIR, "client.py"), "w") as fp:
+        fp.write(client_template.render(klasses=klasses, topics=topics))
 
     # generate documentation
     # template = template_env.get_template("docs.j2")
