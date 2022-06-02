@@ -1,5 +1,6 @@
 import functools
-from typing import Any, Callable
+import time
+from typing import Any, Callable, Optional
 
 from loguru import logger
 
@@ -49,6 +50,37 @@ def async_try_except(reraise: bool = False) -> Callable:
                 logger.exception(f"Unexpected exception in {func.__name__}")
                 if reraise:
                     raise e from e
+
+        return wrapper
+
+    return decorator
+
+def run_forever(period: Optional[float] = None, frequency: Optional[float] = None) -> Callable:
+    """
+    Function decorator that acts as a while: True block around the function, that
+    runs every `period` seconds, or `frequency` times per second.
+    Either `period` or `frequency` must be set.
+
+    Effectively equivalent to:
+
+    ```python
+    while True:
+        time.sleep(period)
+        func()
+    ```
+    """
+
+    if frequency is not None:
+        period = 1 / frequency
+
+    assert period is not None
+
+    def decorator(func: Callable) -> Callable:
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs) -> Any:
+            while True:
+                time.sleep(period)
+                func(*args, **kwargs)
 
         return wrapper
 

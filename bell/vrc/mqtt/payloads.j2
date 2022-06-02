@@ -31,15 +31,15 @@ from typing import Any, List, Literal, Optional, Protocol, Tuple, TypedDict
 {% for klass in klasses %}
 {{ class(klass, "") }}
 {% endfor %}
-# =========== messages ===========
+# =========== payloads ===========
 
 {% for topic in topics %}
-{{ class(topic, "Message") }}
+{{ class(topic, "Payload") }}
 
 class _{{ topic.name }}Callable(Protocol):
     """
     Class used only for type-hinting MQTT callbacks
     """
-    def __call__(self, payload: {{ topic.name }}Message) -> Any:
+    def __call__(self, payload: {{ topic.name }}Payload) -> Any:
         ...
 {% endfor %}

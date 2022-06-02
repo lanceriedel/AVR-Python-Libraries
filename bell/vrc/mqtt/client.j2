@@ -10,16 +10,16 @@ from typing import Any, Literal, Optional, TypedDict, Union, overload
 import paho.mqtt.client as mqtt
 from loguru import logger
 
-from .messages import (
+from .payloads import (
 {%- for topic in topics %}
-    {{ topic.name }}Message,
+    {{ topic.name }}Payload,
     _{{ topic.name }}Callable,
 {%- endfor %}
 )
 
-# create typed dict of callbacks associated with topics
-_MQTTTopicMap = TypedDict(
-    "_MQTTTopicMap",
+# create typed dict of topics associated with callbacks
+_MQTTTopicCallable = TypedDict(
+    "_MQTTTopicCallable",
     {
 {%- for topic in topics %}
         "{{ topic.path }}": _{{ topic.name }}Callable,
@@ -28,12 +28,12 @@ _MQTTTopicMap = TypedDict(
     total=False
 )
 
-# create typed dict of callbacks associated with topics
-_MQTTMessageCache = TypedDict(
-    "_MQTTMessageCache",
+# create typed dict of topics associated with payloads
+_MQTTTopicPayload = TypedDict(
+    "_MQTTTopicPayload",
     {
 {%- for topic in topics %}
-        "{{ topic.path }}": {{ topic.name }}Message,
+        "{{ topic.path }}": {{ topic.name }}Payload,
 {%- endfor %}
     },
     total=False
@@ -61,10 +61,10 @@ class MQTTModule:
 
         # dictionary of MQTT topics to callback functions
         # this is intended to be overwritten by the child class
-        self.topic_map: _MQTTTopicMap = {}
+        self.topic_map: _MQTTTopicCallable = {}
 
         # maintain a cache of the last message sent on a topic by this module
-        self.message_cache: _MQTTMessageCache = {}
+        self.message_cache: _MQTTTopicPayload = {}
 
     def run(self) -> None:
         """
@@ -121,10 +121,10 @@ class MQTTModule:
 {%- for topic in topics %}
 
     @overload
-    def send_message(self, topic: Literal["{{ topic.path }}"], payload: {{ topic.name }}Message) -> None: ...
+    def send_message(self, topic: Literal["{{ topic.path }}"], payload: {{ topic.name }}Payload) -> None: ...
 {%- endfor %}
 
-    def send_message(self, topic: Literal[{% for topic in topics %}"{{ topic.path }}"{% if not loop.last %},{% endif %} {% endfor %}], payload: Union[{% for topic in topics %}{{ topic.name }}Message{% if not loop.last %},{% endif %} {% endfor %}]) -> None:
+    def send_message(self, topic: Literal[{% for topic in topics %}"{{ topic.path }}"{% if not loop.last %},{% endif %} {% endfor %}], payload: Union[{% for topic in topics %}{{ topic.name }}Payload{% if not loop.last %},{% endif %} {% endfor %}]) -> None:
         """
         Sends a message to the MQTT broker.
         """

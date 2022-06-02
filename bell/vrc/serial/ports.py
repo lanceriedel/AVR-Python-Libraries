@@ -8,7 +8,7 @@ import serial
 
 def list_serial_ports() -> List[str]:
     """
-    Returns a list of serial ports on the system
+    Returns a list of serial ports on the system.
     """
     if sys.platform.startswith("win"):
         ports = [f"COM{i + 1}" for i in range(256)]

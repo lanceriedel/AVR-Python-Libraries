@@ -73,11 +73,11 @@ def main() -> None:
         klasses.extend(process_klass(topic))
 
     # generate python code
-    messages_template = template_env.get_template("messages.j2")
+    payloads_template = template_env.get_template("payloads.j2")
 
-    print("Rendering messages template")
-    with open(os.path.join(MQTT_DIR, "messages.py"), "w") as fp:
-        fp.write(messages_template.render(klasses=klasses, topics=topics))
+    print("Rendering payloads template")
+    with open(os.path.join(MQTT_DIR, "payloads.py"), "w") as fp:
+        fp.write(payloads_template.render(klasses=klasses, topics=topics))
 
     client_template = template_env.get_template("client.j2")
 
