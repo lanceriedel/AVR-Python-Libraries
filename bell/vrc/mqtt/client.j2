@@ -5,24 +5,26 @@ from __future__ import annotations
 
 import copy
 import json
-from typing import Any, Literal, Optional, TypedDict, Union, overload
+from typing import Any, Literal, TypedDict, Union, overload
 
 import paho.mqtt.client as mqtt
 from loguru import logger
 
 from .payloads import (
-{%- for topic in topics %}
-    {{ topic.name }}Payload,
-    _{{ topic.name }}Callable,
+{%- for message in messages %}
+    {{ message.name }}Payload,
+    _{{ message.name }}Callable,
 {%- endfor %}
 )
+from ..utils.decorators import try_except
+
 
 # create typed dict of topics associated with callbacks
 _MQTTTopicCallable = TypedDict(
     "_MQTTTopicCallable",
     {
-{%- for topic in topics %}
-        "{{ topic.path }}": _{{ topic.name }}Callable,
+{%- for message in messages %}
+        "{{ message.topic }}": _{{ message.name }}Callable,
 {%- endfor %}
     },
     total=False
@@ -32,8 +34,8 @@ _MQTTTopicCallable = TypedDict(
 _MQTTTopicPayload = TypedDict(
     "_MQTTTopicPayload",
     {
-{%- for topic in topics %}
-        "{{ topic.path }}": {{ topic.name }}Payload,
+{%- for message in messages %}
+        "{{ message.topic }}": {{ message.name }}Payload,
 {%- endfor %}
     },
     total=False
@@ -53,7 +55,7 @@ class MQTTModule:
         self.mqtt_port = 18830
 
         # create the MQTT client
-        self._mqtt_client = mqtt.Client()
+        self._mqtt_client = mqtt.Client(protocol=mqtt.MQTTv311)
 
         # set up the on connect and on message handlers
         self._mqtt_client.on_connect = self.on_connect
@@ -86,29 +88,18 @@ class MQTTModule:
         # run in background
         self._mqtt_client.loop_start()
 
-    def on_message(
-        self, client: mqtt.Client, userdata: Any, msg: mqtt.MQTTMessage
-    ) -> None:
+    @try_except()
+    def on_message(self, client: mqtt.Client, userdata: Any, msg: mqtt.MQTTMessage) -> None:
         """
-        On message callback, Dispatches the message to the appropriate function.
+        On message callback, dispatches the message to the appropriate function.
         """
-        try:
-            # logger.debug(f"Recieved {msg.topic}: {msg.payload}")
-            if msg.topic in self.topic_map:
-                # we talk JSON, no exceptions
-                payload = json.loads(msg.payload)
-                self.topic_map[msg.topic](payload)
+        # logger.debug(f"Recieved {msg.topic}: {msg.payload}")
+        if msg.topic in self.topic_map:
+            # we talk JSON, no exceptions
+            payload = json.loads(msg.payload)
+            self.topic_map[msg.topic](payload)
 
-        except Exception:
-            logger.exception(f"Error handling message on {msg.topic}")
-
-    def on_connect(
-        self,
-        client: mqtt.Client,
-        userdata: Any,
-        rc: Any,
-        properties: Optional[mqtt.Properties] = None,
-    ) -> None:
+    def on_connect(self, client: mqtt.Client, userdata: Any, flags: dict, rc: int) -> None:
         """
         On connection callback. Subscribes to MQTT topics in the topic map.
         """
@@ -118,13 +109,13 @@ class MQTTModule:
             client.subscribe(topic)
             logger.success(f"Subscribed to: {topic}")
 
-{%- for topic in topics %}
+{%- for message in messages %}
 
     @overload
-    def send_message(self, topic: Literal["{{ topic.path }}"], payload: {{ topic.name }}Payload) -> None: ...
+    def send_message(self, topic: Literal["{{ message.topic }}"], payload: {{ message.name }}Payload) -> None: ...
 {%- endfor %}
 
-    def send_message(self, topic: Literal[{% for topic in topics %}"{{ topic.path }}"{% if not loop.last %},{% endif %} {% endfor %}], payload: Union[{% for topic in topics %}{{ topic.name }}Payload{% if not loop.last %},{% endif %} {% endfor %}]) -> None:
+    def send_message(self, topic: Literal[{% for message in messages %}"{{ message.topic }}"{% if not loop.last %}, {% endif %}{% endfor %}], payload: Union[{% for message in messages %}{{ message.name }}Payload{% if not loop.last %}, {% endif %}{% endfor %}]) -> None:
         """
         Sends a message to the MQTT broker.
         """
