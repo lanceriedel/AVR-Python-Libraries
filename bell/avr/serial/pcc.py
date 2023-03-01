@@ -1,10 +1,10 @@
 import ctypes
-import time
 from struct import pack
-from typing import Any, List, Literal, Optional, Union
+from typing import Any, List, Literal, Optional, Tuple, Union
+
+from loguru import logger
 
 import serial
-from loguru import logger
 
 
 class PeripheralControlComputer:
@@ -16,53 +16,57 @@ class PeripheralControlComputer:
         self.HEADER_OUTGOING = (*self.PREAMBLE, 0x3C)
         self.HEADER_INCOMING = (*self.PREAMBLE, 0x3E)
 
-        self.commands = {
-            "SET_SERVO_OPEN_CLOSE": 0,
-            "SET_SERVO_MIN": 1,
-            "SET_SERVO_MAX": 2,
-            "SET_SERVO_PCT": 3,
-            "SET_SERVO_ABS": 4,
-            "SET_BASE_COLOR": 5,
-            "SET_TEMP_COLOR": 6,
-            "FIRE_LASER": 7,
-            "SET_LASER_ON": 8,
-            "SET_LASER_OFF": 9,
-            "RESET_AVR_PERIPH": 10,
-            "CHECK_SERVO_CONTROLLER": 11,
-        }
+        self.commands = [
+            "SET_SERVO_OPEN_CLOSE",
+            "SET_SERVO_MIN",
+            "SET_SERVO_MAX",
+            "SET_SERVO_PCT",
+            "SET_SERVO_ABS",
+            "SET_BASE_COLOR",
+            "SET_TEMP_COLOR",
+            "FIRE_LASER",
+            "SET_LASER_ON",
+            "SET_LASER_OFF",
+            "RESET_AVR_PERIPH",
+            "CHECK_SERVO_CONTROLLER",
+        ]
 
         self.shutdown: bool = False
 
-    def set_base_color(self, wrgb: List[int]) -> None:
-        command = self.commands["SET_BASE_COLOR"]
+    def set_base_color(self, wrgb: Tuple[int, int, int, int]) -> None:
+        command = self.commands.index("SET_BASE_COLOR")
+        wrgb_l = list(wrgb)
 
         # wrgb + code = 5
-        if len(wrgb) != 4:
-            wrgb = [0, 0, 0, 0]
+        if len(wrgb_l) != 4:
+            wrgb_l = [0, 0, 0, 0]
 
-        for i, color in enumerate(wrgb):
+        for i, color in enumerate(wrgb_l):
             if not isinstance(color, int) or color > 255 or color < 0:
-                wrgb[i] = 0
+                wrgb_l[i] = 0
 
-        data = self._construct_payload(command, 1 + len(wrgb), wrgb)
+        data = self._construct_payload(command, 1 + len(wrgb_l), wrgb_l)
 
         logger.debug(f"Setting base color: {data}")
         self.ser.write(data)
 
-    def set_temp_color(self, wrgb: List[int], time: float = 0.5) -> None:
-        command = self.commands["SET_TEMP_COLOR"]
+    def set_temp_color(
+        self, wrgb: Tuple[int, int, int, int], time: float = 0.5
+    ) -> None:
+        command = self.commands.index("SET_TEMP_COLOR")
+        wrgb_l = list(wrgb)
 
         # wrgb + code = 5
-        if len(wrgb) != 4:
-            wrgb = [0, 0, 0, 0]
+        if len(wrgb_l) != 4:
+            wrgb_l = [0, 0, 0, 0]
 
-        for i, color in enumerate(wrgb):
+        for i, color in enumerate(wrgb_l):
             if not isinstance(color, int) or color > 255 or color < 0:
-                wrgb[i] = 0
+                wrgb_l[i] = 0
 
         time_bytes = self.list_pack("<f", time)
         data = self._construct_payload(
-            command, 1 + len(wrgb) + len(time_bytes), wrgb + time_bytes
+            command, 1 + len(wrgb) + len(wrgb_l), wrgb_l + time_bytes
         )
 
         logger.debug(f"Setting temp color: {data}")
@@ -73,7 +77,7 @@ class PeripheralControlComputer:
     ) -> None:
         valid_command = False
 
-        command = self.commands["SET_SERVO_OPEN_CLOSE"]
+        command = self.commands.index("SET_SERVO_OPEN_CLOSE")
         data = []
 
         # 128 is inflection point, over 128 == open; under 128 == close
@@ -98,7 +102,7 @@ class PeripheralControlComputer:
     def set_servo_min(self, servo: int, minimum: float) -> None:
         valid_command = False
 
-        command = self.commands["SET_SERVO_MIN"]
+        command = self.commands.index("SET_SERVO_MIN")
         data = []
 
         if isinstance(minimum, (float, int)) and minimum < 1000 and minimum > 0:
@@ -117,7 +121,7 @@ class PeripheralControlComputer:
     def set_servo_max(self, servo: int, maximum: float) -> None:
         valid_command = False
 
-        command = self.commands["SET_SERVO_MAX"]
+        command = self.commands.index("SET_SERVO_MAX")
         data = []
 
         if isinstance(maximum, (float, int)) and maximum < 1000 and maximum > 0:
@@ -136,7 +140,7 @@ class PeripheralControlComputer:
     def set_servo_pct(self, servo: int, pct: int) -> None:
         valid_command = False
 
-        command = self.commands["SET_SERVO_PCT"]
+        command = self.commands.index("SET_SERVO_PCT")
         data = []
 
         if isinstance(pct, (float, int)) and pct <= 100 and pct >= 0:
@@ -155,7 +159,7 @@ class PeripheralControlComputer:
     def set_servo_abs(self, servo: int, absolute: int) -> None:
         valid_command = False
 
-        command = self.commands["SET_SERVO_ABS"]
+        command = self.commands.index("SET_SERVO_ABS")
         data = []
 
         if isinstance(absolute, int):
@@ -175,7 +179,7 @@ class PeripheralControlComputer:
         self.ser.write(data)
 
     def fire_laser(self) -> None:
-        command = self.commands["FIRE_LASER"]
+        command = self.commands.index("FIRE_LASER")
 
         length = 1
         data = self._construct_payload(command, length)
@@ -184,7 +188,7 @@ class PeripheralControlComputer:
         self.ser.write(data)
 
     def set_laser_on(self) -> None:
-        command = self.commands["SET_LASER_ON"]
+        command = self.commands.index("SET_LASER_ON")
 
         length = 1
         data = self._construct_payload(command, length)
@@ -193,7 +197,7 @@ class PeripheralControlComputer:
         self.ser.write(data)
 
     def set_laser_off(self) -> None:
-        command = self.commands["SET_LASER_OFF"]
+        command = self.commands.index("SET_LASER_OFF")
 
         length = 1
         data = self._construct_payload(command, length)
@@ -201,21 +205,21 @@ class PeripheralControlComputer:
         logger.debug(f"Setting the laser off: {data}")
         self.ser.write(data)
 
-    def reset_avr_peripheral(self) -> None:
-        command = self.commands["RESET_AVR_PERIPH"]
+    # def reset_avr_peripheral(self) -> None:
+    #     command = self.commands.index("RESET_AVR_PERIPH")
 
-        length = 1  # just the reset command
-        data = self._construct_payload(command, length)
+    #     length = 1  # just the reset command
+    #     data = self._construct_payload(command, length)
 
-        logger.debug(f"Resetting the PCC: {data}")
-        self.ser.write(data)
+    #     logger.debug(f"Resetting the PCC: {data}")
+    #     self.ser.write(data)
 
-        self.ser.close()
-        time.sleep(5)
-        self.ser.open()
+    #     self.ser.close()
+    #     time.sleep(5)
+    #     self.ser.open()
 
     def check_servo_controller(self) -> None:
-        command = self.commands["CHECK_SERVO_CONTROLLER"]
+        command = self.commands.index("CHECK_SERVO_CONTROLLER")
 
         length = 1
         data = self._construct_payload(command, length)

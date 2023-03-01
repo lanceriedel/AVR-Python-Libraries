@@ -1,0 +1,7 @@
+{
+    "recommendations": [
+        "asyncapi.asyncapi-preview",
+        "stoplight.spectral",
+        "redhat.vscode-yaml"
+    ]
+}

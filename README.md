@@ -1,5 +1,7 @@
 # AVR-Python-Libraries
 
+[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+
 ## Install
 
 To install the base package, run:
@@ -8,11 +10,11 @@ To install the base package, run:
 pip install bell-avr-libraries
 ```
 
-Additionally, the `mqtt` and `serial` extras are available if you want to use
-the MQTT or PCC functionality.
+Additionally, the `serial` and `qt` extras are available if you want to use
+the PCC or PySide functionality.
 
 ```bash
-pip install bell-avr-libraries[mqtt,serial]
+pip install bell-avr-libraries[serial,qt]
 ```
 
 ## Usage
@@ -27,44 +29,40 @@ These are MQTT utilities that are used to have a consistent messaging protocol
 throughout all the AVR software modules.
 
 The first part of this are the payloads for the MQTT messages themselves. As AVR
-exclusively uses JSON, these are all
-[`TypedDict`](https://docs.python.org/3/library/typing.html#typing.TypedDict)s
+exclusively uses JSON, these are all [Pydantic](https://docs.pydantic.dev/) classes
 that have all of the required fields for a message.
 
 Example:
 
 ```python
-from bell.avr.mqtt.payloads import AvrPcmSetBaseColorPayload
+from bell.avr.mqtt.payloads import AVRPCMColorSet
 
-payload = AvrPcmSetBaseColorPayload((128, 232, 142, 0))
+payload = AVRPCMColorSet(wrgb=(128, 232, 142, 0))
 ```
 
-The second part of the MQTT libraries, is the `MQTTModule` class.
+The second part of the MQTT libraries is the `MQTTModule` class.
 This is a boilerplate module for AVR that makes it very easy to send
-and recieve MQTT messages and do something with them.
+and receive MQTT messages and do something with them.
 
 Example:
 
 ```python
-from bell.avr.mqtt.client import MQTTModule
-from bell.avr.mqtt.payloads import AvrFcmVelocityPayload, AvrPcmSetServoOpenClosePayload
+from bell.avr.mqtt.module import MQTTModule
+from bell.avr.mqtt.payloads import AVRFCMVelocity, AVRPCMServo
 
 
 class Sandbox(MQTTModule):
     def __init__(self) -> None:
         super().__init__()
-        self.topic_map = {"avr/fcm/velocity": self.show_velocity}
+        self.topic_callbacks = {"avr/fcm/velocity": self.show_velocity}
 
-    def show_velocity(self, payload: AvrFcmVelocityPayload) -> None:
-        vx = payload["vX"]
-        vy = payload["vY"]
-        vz = payload["vZ"]
-        v_ms = (vx, vy, vz)
+    def show_velocity(self, payload: AVRFCMVelocity) -> None:
+        v_ms = (payload.vN, payload.vE, payload.vd)
         print(f"Velocity information: {v_ms} m/s")
 
     def open_servo(self) -> None:
-        payload = AvrPcmSetServoOpenClosePayload(servo=0, action="open")
-        self.send_message("avr/pcm/set_servo_open_close", payload)
+        payload = AVRPCMServo(servo=0)
+        self.send_message("avr/pcm/servo/open", payload)
 
 
 if __name__ == "__main__":
@@ -72,9 +70,11 @@ if __name__ == "__main__":
     box.run()
 ```
 
-The `topic_map` dictionary is a class attribute that maps topics to subscribe to
-and a function that will handle an incoming payload. The `payload` argument
-should match the appropriate `Payload` class for that topic.
+The `topic_callbacks` dictionary is a class attribute that maps topics to
+subscribe to and a function that will handle an incoming payload.
+The `payload` argument should match the appropriate class for that
+topic. This can be determined from the documentation at
+[https://bellflight.github.io/AVR-Python-Libraries](https://bellflight.github.io/AVR-Python-Libraries)
 
 Additionally, the `message_cache` attribute is a dictionary that holds
 a copy of the last payload sent by that module on a given topic. The keys are the
@@ -131,8 +131,8 @@ with a given `period` or `frequency`.
 from bell.avr.utils import timing
 ```
 
-Here is a `rate_limit` function which take a callable and a
-period or frequency, and only run the callable at that given rate.
+Here is a `rate_limit` function which takes a callable and a
+period or frequency, and only runs the callable at that given rate.
 
 ```python
 for _ in range(10):
@@ -141,10 +141,26 @@ for _ in range(10):
     time.sleep(1)
 ```
 
-This works tracking calls to the `rate_limit` function from a line number
+This works by tracking calls to the `rate_limit` function from a line number
 within a file, so multiple calls to `rate_limit` say within a loop
-with the same callable and period will be treated seperately. This allows
+with the same callable and period will be treated separately. This allows
 for dynamic frequency manipulation.
+
+#### Env
+
+```python
+from bell.avr.utils import env
+```
+
+The function `get_env_int` is like the `os.getenv` function, except it is only meant
+for environment variables which contain an integer.
+
+```python
+env.get_env_int("MQTT_HOST", 1883)
+# returns the value of MQTT_HOST as an integer
+# or 1883 if the environment variable is not set
+# or not an integer.
+```
 
 ### Serial
 
@@ -153,7 +169,7 @@ from bell.avr import serial
 ```
 
 These are serial utilities that help facilitate finding and communicating
-with the AVR peripherial control computer.
+with the AVR peripheral control computer.
 
 #### Client
 
@@ -172,11 +188,11 @@ ser = client.SerialLoop()
 #### PCC
 
 ```python
-from bell.avr.serial import client
+from bell.avr.serial import pcc
 ```
 
 The `PeripheralControlComputer` class sends serial messages
-to the AVR peripherial control computer, via easy-to-use class methods.
+to the AVR peripheral control computer, via easy-to-use class methods.
 
 ```python
 import bell.avr.serial.client
@@ -212,31 +228,47 @@ serial_ports = ports.list_serial_ports()
 
 ## Development
 
-Install [`poetry`](https://python-poetry.org/) and run
-`poetry install --extras mqtt --extras serial` to install of the dependencies
-inside a virtual environment.
+It's assumed you have a version of Python installed from
+[python.org](https://python.org) that is the same or newer as
+defined in the [`.python-version`](.python-version) file.
+
+First, install [Poetry](https://python-poetry.org/):
+
+```bash
+python -m pip install pipx --upgrade
+pipx ensurepath
+pipx install poetry
+# (Optionally) Add pre-commit plugin
+poetry self add poetry-pre-commit-plugin
+```
+
+Now, you can clone the repo and install dependencies:
+
+```bash
+git clone https://github.com/bellflight/AVR-Python-Libraries
+cd AVR-Python-Libraries
+poetry install --sync --all-extras
+poetry run pre-commit install --install-hooks
+```
+
+Run
+
+```bash
+poetry shell
+```
+
+to activate the virtual environment.
 
 Build the auto-generated code with `poetry run python build.py`. From here,
 you can now produce a package with `poetry build`.
 
-To add new message definitions, add entries to the `bell/avr/mqtt/messages.jsonc` file.
-The 3 parts of a new message are as follows:
+To add new message definitions, add entries to the `bell/avr/mqtt/asyncapi.yml` file.
+This is an [AsyncAPI](https://www.asyncapi.com/) definition,
+which is primarily [JSONSchema](https://json-schema.org/) with some association
+of classes and topics.
 
-1. "topic": This is the full topic path for the message. This must be all lower case and
-   start with "avr/".
-2. "payload": These are the keys of the payload for the message.
-   This is a list of key entries (see below).
-3. "docs": This is an optional list of Markdown strings that explains what this
-   message does. Each list item is a new line.
+The generator that turns this definition file into Python code is the homebrew
+[build.py](build.py), so double-check that the output makes sense.
 
-The key entries for a message have the following elements:
-
-1. "key": This is the name of the key. Must be a valid Python variable name.
-2. "type": This is the data type of the key such as `Tuple[int, int, int, int]`.
-   Must be a valid Python type hint. Otherwise, this can be a list of more
-   key entries, effectively creating a nested dictionary.
-3. "docs": This is an optional list of Markdown strings that explains what the
-   key is. Each list item is a new line.
-
-The `bell/avr/mqtt/schema.json` file will help ensure the correct schema is maintained,
-assuming you are using VS Code.
+To generate the documentation, run the `build.py` script with the `--docs` option.
+This requies that Node.js is installed, and `npm` install hs been run.

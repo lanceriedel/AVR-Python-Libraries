@@ -1,9 +1,11 @@
-name: Tests
+name: Python Tests
 
 on:
+  workflow_dispatch:
   pull_request:
     branches:
       - main
+      - develop
 
 jobs:
   test:
@@ -18,8 +20,10 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v3
 
-      - name: Setup Poetry
-        uses: Gr1N/setup-poetry@v7
+      - name: Install poetry
+        run: |
+          python -m pip install pip wheel pipx --upgrade
+          pipx install poetry
 
       - name: Setup Python ${{ matrix.python_version }}
         uses: actions/setup-python@v4
@@ -28,45 +32,15 @@ jobs:
           cache: poetry
 
       - name: Install Python Dependencies
-        run: |
-          poetry install --extras "serial" --extras "mqtt"
-          poetry run python build.py --docs
+        run: poetry install --all-extras
+
+      - name: Generate Code
+        run: poetry run python build.py
 
       - name: Run Tests
         run: poetry run pytest -v
 
-  formatting:
-    runs-on: ubuntu-latest
-    if: "!contains(github.event.head_commit.message, 'ci skip')"
-
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v3
-
-      - name: Setup Poetry
-        uses: Gr1N/setup-poetry@v7
-
-      - name: Setup Python 3.10
-        uses: actions/setup-python@v4
-        with:
-          python-version: "3.10"
-          cache: poetry
-
-      - name: Install Python Dependencies
-        run: |
-          poetry install
-          poetry run python build.py --docs
-
-      - name: Run Black
-        run: poetry run python -m black . --check
-
-      - name: Run Isort
-        run: poetry run python -m isort . --check
-
-      - name: Run Autoflake
-        run: poetry run python -m autoflake . --recursive --remove-all-unused-imports --check
-
-  type-checking:
+  docs:
     runs-on: ubuntu-latest
     if: "!contains(github.event.head_commit.message, 'ci skip')"
 
@@ -77,84 +51,39 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v3
         with:
-          node-version: "16"
+          node-version: "19"
           cache: npm
 
-      - name: Setup Poetry
-        uses: Gr1N/setup-poetry@v7
+      - name: Install poetry
+        run: |
+          python -m pip install pip wheel pipx --upgrade
+          pipx install poetry
 
-      # run on the lowest supported version
-      - name: Setup Python 3.8
+      - name: Setup Python
         uses: actions/setup-python@v4
         with:
-          python-version: "3.8"
+          python-version-file: .python-version
           cache: poetry
 
       - name: Install Python Dependencies
-        run: |
-          poetry install --extras "serial" --extras "mqtt"
-          poetry run python build.py --docs
+        run: poetry install
 
       - name: Install Node Dependencies
         run: npm install
 
-      - name: Run Pyright
-        run: poetry run npx pyright .
+      - name: Build Docs
+        run: poetry run python build.py --docs
 
-      - name: Run Pyleft
-        run: poetry run python -m pyleft .
+  # does not support 2.5.0
+  # validate-apispec:
+  #   runs-on: ubuntu-latest
+  #   if: "!contains(github.event.head_commit.message, 'ci skip')"
 
-  version-number:
-    runs-on: ubuntu-latest
-    if: "!contains(github.event.head_commit.message, 'ci skip')"
+  #   steps:
+  #     - name: Checkout Code
+  #       uses: actions/checkout@v3
 
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v3
-
-      - name: Setup Poetry
-        uses: Gr1N/setup-poetry@v7
-
-      - name: Setup Python 3.10
-        uses: actions/setup-python@v4
-        with:
-          python-version: "3.10"
-
-      - name: Check Version Number
-        shell: python
-        run: |
-          import json
-          import os
-          import subprocess
-
-          release_tags_json = subprocess.check_output(
-              [
-                  "gh",
-                  "api",
-                  "graphql",
-                  "-F",
-                  f"owner={os.environ['OWNER']}",
-                  "-F",
-                  f"name={os.environ['REPO']}",
-                  "-f",
-                  "query=query($name: String!, $owner: String!) {repository(owner: $owner, name: $name) {releases(last: 10){nodes{tagName}}}}",
-              ]
-          )
-
-
-          release_tags = [
-              r["tagName"]
-              for r in json.loads(release_tags_json)["data"]["repository"]["releases"]["nodes"]
-          ]
-
-          poetry_version = (
-              subprocess.check_output(["poetry", "version", "--short"]).decode("utf-8").strip()
-          )
-
-          print(f"Current version: {poetry_version}")
-          print(f"Published versions: {release_tags}")
-          assert poetry_version not in release_tags
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          OWNER: ${{ github.repository_owner }}
-          REPO: ${{ github.event.repository.name }}
+  #     - name: Validate AsyncAPI Spec
+  #       uses: WaleedAshraf/asyncapi-github-action@v0.0.9
+  #       with:
+  #         filepath: bell/avr/mqtt/asyncapi.yml
