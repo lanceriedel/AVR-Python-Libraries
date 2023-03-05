@@ -271,4 +271,4 @@ The generator that turns this definition file into Python code is the homebrew
 [build.py](build.py), so double-check that the output makes sense.
 
 To generate the documentation, run the `build.py` script with the `--docs` option.
-This requies that Node.js is installed, and `npm` install hs been run.
+This requires that Node.js is installed, and `npm` install has been run.

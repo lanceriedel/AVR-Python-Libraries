@@ -444,7 +444,7 @@ def docs() -> None:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--docs", action="store_true", help="Fenerate documentation")
+    parser.add_argument("--docs", action="store_true", help="Generate documentation")
     args = parser.parse_args()
 
     python_code()
