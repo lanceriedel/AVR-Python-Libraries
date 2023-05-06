@@ -24,7 +24,7 @@ MQTT_DIR = THIS_DIR.joinpath("bell", "avr", "mqtt")
 DOCS_DIR = THIS_DIR.joinpath("docs")
 DOCS_FAVICON = DOCS_DIR.joinpath("favicon.png")
 
-BASE_URL = os.getenv("BASE_URL", "/")
+BASE_URL = os.getenv("BASE_URL", "")
 
 
 ICON_URL = (
@@ -500,9 +500,9 @@ def python_docs() -> None:
             "--output-directory",
             str(DOCS_DIR.absolute()),
             "--favicon",
-            f"{BASE_URL}{DOCS_FAVICON.name}",
+            f"{BASE_URL}/{DOCS_FAVICON.name}",
             "--logo",
-            f"{BASE_URL}{DOCS_FAVICON.name}",
+            f"{BASE_URL}/{DOCS_FAVICON.name}",
         ]
     )
 
