@@ -9,7 +9,7 @@ on:
 jobs:
   pypi-publish:
     runs-on: ubuntu-latest
-    if: "${{!contains(github.event.head_commit.message, 'ci skip')}}"
+    if: "${{!contains(github.event.head_commit.message, 'ci skip') && !contains(github.event.head_commit.message, 'pypi skip')}}"
 
     steps:
       - name: Checkout Code
@@ -58,7 +58,7 @@ jobs:
     runs-on: ubuntu-latest
     if: "${{!contains(github.event.head_commit.message, 'ci skip')}}"
     # make sure publish worked
-    needs: pypi-publish
+    # needs: pypi-publish
 
     steps:
       - name: Checkout Code
