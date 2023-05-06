@@ -6,6 +6,8 @@ import pathlib
 import shlex
 import shutil
 import subprocess
+import sys
+import urllib.request
 from typing import Dict, List, Optional
 
 import jinja2
@@ -19,6 +21,13 @@ except ImportError:
 
 THIS_DIR = pathlib.Path(__file__).parent
 MQTT_DIR = THIS_DIR.joinpath("bell", "avr", "mqtt")
+DOCS_DIR = THIS_DIR.joinpath("docs")
+DOCS_FAVICON = DOCS_DIR.joinpath("favicon.png")
+
+
+ICON_URL = (
+    "https://bellflight.github.io/AVR-Docs/BELL_Logo_AVR-Competition_RGB_081822-R00.png"
+)
 
 
 @dataclasses.dataclass
@@ -47,6 +56,10 @@ class PropertyTypeHint:
     """
     If a validator is required.
     """
+    validator_iter: Optional[str] = None
+    """
+    The iterator format to convert to for a validator. Can be a list or tuple.
+    """
 
 
 def create_name(parent: str, child: str) -> str:
@@ -68,7 +81,16 @@ def type_hint_for_number_property(
         raise ValueError(f"Not a valid number type: {property_['type']}")
 
     # if there are no extras, just return the python type
-    if all(p not in property_ for p in ["default", "minimum", "maximum"]):
+    if all(
+        p not in property_
+        for p in [
+            "default",
+            "minimum",
+            "maximum",
+            "exclusiveMinimum",
+            "exclusiveMaximum",
+        ]
+    ):
         return PropertyTypeHint(
             prepend_lines=[],
             type_checking=False,
@@ -78,7 +100,7 @@ def type_hint_for_number_property(
     # otherwise, add a Field object, with a possible default
     # https://docs.pydantic.dev/visual_studio_code/#adding-a-default-with-field
     field_value = "..."
-    default = property_.get("default", None)
+    default = property_.get("default")
     if default is not None:
         field_value = f"default={default}"
 
@@ -87,10 +109,14 @@ def type_hint_for_number_property(
     # possible min value
     if "minimum" in property_:
         output += f", ge={property_['minimum']}"
+    elif "exclusiveMinimum" in property_:
+        output += f", gt={property_['exclusiveMinimum']}"
 
     # possible max value
     if "maximum" in property_:
         output += f", le={property_['maximum']}"
+    elif "exclusiveMaximum" in property_:
+        output += f", lt={property_['exclusiveMaximum']}"
 
     # round it out and return
     output += ")"
@@ -156,8 +182,12 @@ def type_hint_for_array_property(
         # if just a basic list and nothing else, return
         return PropertyTypeHint(
             prepend_lines=sub_property_type_hint.prepend_lines,
-            type_checking=False,
+            type_checking=sub_property_type_hint.type_checking,
             type_hint=python_type,
+            type_checking_type_hint=python_type_checking_type,
+            core_type_hint=sub_property_type_hint.core_type_hint,
+            validator=sub_property_type_hint.validator,
+            validator_iter="list",
         )
 
     # otherwise, add a Field object
@@ -183,6 +213,7 @@ def type_hint_for_array_property(
         type_checking_type_hint=python_type_checking_type,
         core_type_hint=sub_property_type_hint.core_type_hint,
         validator=True,
+        validator_iter="tuple",
     )
 
 
@@ -205,14 +236,20 @@ def type_hint_for_property(
         else:
             property_type_hint.type_hint = "str"
 
+        if "default" in property_:
+            property_type_hint.type_hint += f" = Field(default={property_['default']})"
+
     elif property_["type"] in ["number", "integer"]:
-        subclass_name = (parent_name + name.title()).replace("_", "")
+        subclass_name = create_name(parent_name, name)
         property_type_hint = type_hint_for_number_property(
             property_, nested=nested, name=name, parent_name=parent_name
         )
 
     elif property_["type"] == "boolean":
         property_type_hint.type_hint = "bool"
+
+        if "default" in property_:
+            property_type_hint.type_hint += f" = Field(default={property_['default']})"
 
     elif property_["type"] == "object":
         subclass_name = create_name(parent_name, name)
@@ -287,8 +324,8 @@ def build_class_code(class_name: str, class_data: dict) -> List[str]:
                 output_lines.extend(
                     [
                         f"\t@validator('{property_name}')",
-                        f"\tdef validate_{property_name}(cls, v):",
-                        f"\t\treturn _convert_type(v, {property_type_hint.core_type_hint})",
+                        f"\tdef _validate_{property_name}(cls, v) -> {property_type_hint.validator_iter}:",
+                        f"\t\treturn _convert_type(v, {property_type_hint.validator_iter}, {property_type_hint.core_type_hint})",
                         "",
                     ]
                 )
@@ -334,23 +371,51 @@ def python_code() -> None:
         "# This file is automatically @generated. DO NOT EDIT!",
         "# fmt: off",
         "",
+        '"""',
+        "These are Python classes for MQTT message payloads.",
+        "As AVR exclusively uses JSON, these are all [Pydantic](https://docs.pydantic.dev/)",
+        "classes that have all of the required fields for a message.",
+        "",
+        "This is a Python implementation of the AVR [AsyncAPI definition](../mqtt/asyncapi)."
+        "",
+        "Example:",
+        "",
+        "```python",
+        "from bell.avr.mqtt.payloads import AVRPCMColorSet",
+        "",
+        "payload = AVRPCMColorSet(wrgb=(128, 232, 142, 0))" "```",
+        '"""',
+        "",
         "from __future__ import annotations",
         "",
-        "from typing import TYPE_CHECKING, Any, List, Literal, Optional, Protocol, Tuple, Type, Union",
+        "from typing import TYPE_CHECKING, Any, List, Literal, Optional, Protocol, Tuple, Type, Union, overload",
         "",
         "from pydantic import BaseModel as PydanticBaseModel",
         "from pydantic import Extra, Field, conlist, validator",
         "",
         "",
-        "def _convert_type(iter: Union[list, tuple], convert_to: Union[Type[int], Type[float]]) -> Union[tuple, int, float]:",
-        "\tif isinstance(iter, (tuple, list)):",
-        "\t\treturn tuple(_convert_type(x, convert_to) for x in iter)",
+        "@overload",
+        "def _convert_type(iter_in: Union[list, tuple], iter_out: Type[list], items_convert_to: Type[int]) -> List[int]: ...",
+        "",
+        "@overload",
+        "def _convert_type(iter_in: Union[list, tuple], iter_out: Type[list], items_convert_to: Type[float]) -> List[float]: ...",
+        "",
+        "@overload",
+        "def _convert_type(iter_in: Union[list, tuple], iter_out: Type[tuple], items_convert_to: Type[int]) -> Tuple[int, ...]: ...",
+        "",
+        "@overload",
+        "def _convert_type(iter_in: Union[list, tuple], iter_out: Type[tuple], items_convert_to: Type[float]) -> Tuple[float, ...]: ...",
+        "",
+        "def _convert_type(iter_in: Union[list, tuple], iter_out: Union[Type[list], Type[tuple]], items_convert_to: Union[Type[int], Type[float]]) -> Union[tuple, list, int, float]:",
+        "\tif isinstance(iter_in, (tuple, list)):",
+        "\t\treturn iter_out(_convert_type(x, iter_out, items_convert_to) for x in iter_in)",
         "\telse:",
-        "\t\treturn convert_to(iter)",
+        "\t\treturn items_convert_to(iter_in)",
         "",
         "",
         "class BaseModel(PydanticBaseModel):",
         "\tclass Config:",
+        "\t\t'For [Pydantic configuration](https://docs.pydantic.dev/latest/usage/model_config/), please ignore.'",
         "\t\textra = Extra.forbid",
         "",
         "",
@@ -404,10 +469,30 @@ def python_code() -> None:
 
 
 def docs() -> None:
-    # create docs dir
-    docs_dir = THIS_DIR.joinpath("docs")
-    docs_dir.mkdir(parents=True, exist_ok=True)
+    DOCS_DIR.mkdir(parents=True, exist_ok=True)
 
+    # delete everything except the favicon
+    for item in DOCS_DIR.iterdir():
+        if item.name.startswith("favicon"):
+            continue
+        elif item.is_file():
+            item.unlink()
+        elif item.is_dir():
+            shutil.rmtree(item)
+
+    # download the favicon
+    if not DOCS_FAVICON.exists():
+        urllib.request.urlretrieve(ICON_URL, DOCS_FAVICON)
+
+    # build Python docs
+    python_docs()
+
+    # build asyncapi docs
+    # This must come second.
+    mqtt_docs()
+
+
+def mqtt_docs() -> None:
     apispec = MQTT_DIR.joinpath("asyncapi.yml")
 
     with open(THIS_DIR.joinpath("pyproject.toml"), "rb") as fp:
@@ -417,28 +502,49 @@ def docs() -> None:
     npx = shutil.which("npx")
     assert npx is not None
 
+    output_dir = DOCS_DIR.joinpath("bell", "avr", "mqtt", "asyncapi")
+
     cmd = [
         npx,
         "ag",  # asyncapi generator
         str(apispec.absolute()),  # asyncapi spec
         "@asyncapi/html-template",  # html template
         "--output",
-        str(docs_dir.absolute()),  # output directory
+        str(output_dir.absolute()),  # output directory
         "--force-write",  # force overwrite
+        "--param",
+        "baseHref=''",
         "--param",
         f'version={pyproject["tool"]["poetry"]["version"]}',  # version
         "--param",
-        "favicon=https://raw.githubusercontent.com/bellflight/AVR-Docs/main/static/favicons/android-chrome-512x512.png",
+        f"favicon={DOCS_FAVICON.absolute()}",
         "--param",
         f"config={json.dumps({'expand': {'messageExamples': True}})}",
     ]
 
-    print("Building docs")
+    print("Building AsyncAPI docs")
     print(shlex.join(cmd))
 
     subprocess.check_call(
         cmd,
         env={**os.environ, "PUPPETEER_SKIP_CHROMIUM_DOWNLOAD": "true"},
+    )
+
+
+def python_docs() -> None:
+    subprocess.check_call(
+        [
+            sys.executable,
+            "-m",
+            "pdoc",
+            "bell.avr",
+            "--output-directory",
+            str(DOCS_DIR.absolute()),
+            "--favicon",
+            f"/{DOCS_FAVICON.name}",
+            "--logo",
+            f"/{DOCS_FAVICON.name}",
+        ]
     )
 
 

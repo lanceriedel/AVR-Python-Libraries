@@ -9,7 +9,7 @@ on:
 jobs:
   pypi-publish:
     runs-on: ubuntu-latest
-    if: "!contains(github.event.head_commit.message, 'ci skip')"
+    if: "${{!contains(github.event.head_commit.message, 'ci skip')}}"
 
     steps:
       - name: Checkout Code
@@ -27,7 +27,7 @@ jobs:
           cache: poetry
 
       - name: Install Python Dependencies
-        run: poetry install
+        run: poetry install --sync
 
       - name: Generate Code
         run: poetry run python build.py
@@ -56,13 +56,18 @@ jobs:
 
   docs-build:
     runs-on: ubuntu-latest
-    if: "!contains(github.event.head_commit.message, 'ci skip')"
+    if: "${{!contains(github.event.head_commit.message, 'ci skip')}}"
     # make sure publish worked
     needs: pypi-publish
 
     steps:
       - name: Checkout Code
         uses: actions/checkout@v3
+
+      - name: Install PySide Packages
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install gnupg2 libegl1-mesa libgl1 libxkbcommon-x11-0 libdbus-1-3 -y
 
       - name: Setup Node
         uses: actions/setup-node@v3
@@ -82,7 +87,7 @@ jobs:
           cache: poetry
 
       - name: Install Python Dependencies
-        run: poetry install
+        run: poetry install --sync --all-extras
 
       - name: Install Node Dependencies
         run: npm install
@@ -101,7 +106,7 @@ jobs:
 
   docs-deploy:
     runs-on: ubuntu-latest
-    if: "!contains(github.event.head_commit.message, 'ci skip')"
+    if: "${{!contains(github.event.head_commit.message, 'ci skip')}}"
     # make sure build ran first
     needs: docs-build
 
