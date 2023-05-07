@@ -12,14 +12,14 @@ from bell.avr.utils.env import get_env_int
 
 
 class MQTTClient:
-    def __init__(self):
-        """
-        This class is *not meant to be used directly*! This meant to serve as the
-        foundation for MQTT interactions. Please use the
-        `bell.avr.mqtt.module.MQTTModule`
-        or `bell.avr.mqtt.qt_widget.MQTTWidget` classes instead.
-        """
+    """
+    This class is *not meant to be used directly*! This meant to serve as the
+    foundation for MQTT interactions. Please use the
+    `bell.avr.mqtt.module.MQTTModule`
+    or `bell.avr.mqtt.qt_widget.MQTTWidget` classes instead.
+    """
 
+    def __init__(self):
         # create the MQTT client
         # Currently using MQTT v3.1.1
         # No reason we can't use v5, just type hinting needs to change

@@ -23,9 +23,10 @@ class MQTTWidget(QtWidgets.QWidget):
     """
     This should not be used directly, but rather through `send_message` instead.
 
-    The `send_message_signal` expects a topic, and the str/bytes of the MQTT payload.
-    This should already be serialized with `bell.avr.mqtt.serializer.serialize_payload`
-    and ready for transmission over the network.
+    This is a `QtCore.Signal` that expects a topic, and the str/bytes of the
+    MQTT payload. This should already be serialized with
+    `bell.avr.mqtt.serializer.serialize_payload` and ready for transmission over the
+    network.
     """
 
     def __init__(self, *args, **kwargs):
@@ -57,6 +58,7 @@ class MQTTWidget(QtWidgets.QWidget):
         )
         ```
         """
+        # this docstring is here because of pdoc weirdness
 
         self.topic_callbacks: _MQTTTopicCallableTypedDict = {}
         """
