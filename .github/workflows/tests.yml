@@ -77,7 +77,7 @@ jobs:
         run: npm install
 
       - name: Build Docs
-        run: poetry run python build.py --docs
+        run: npm run build-docs
 
   # does not support 2.5.0
   # validate-apispec:

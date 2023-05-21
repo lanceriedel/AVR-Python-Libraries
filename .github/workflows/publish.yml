@@ -97,7 +97,7 @@ jobs:
         run: npm install
 
       - name: Build Docs
-        run: poetry run python build.py --docs
+        run: npm run build-docs
         env:
           BASE_URL: ${{ steps.pages.outputs.base_url }}
 

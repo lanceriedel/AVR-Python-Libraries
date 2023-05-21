@@ -147,8 +147,11 @@ class PeripheralControlComputer:
 
     def set_servo_min(self, servo: int, minimum: float) -> None:
         """
-        Sets the minimum pulse width of a servo. Expects the 0-indexed servo ID and
-        the minimum pulse width between 0 and 1000 non-inclusive.
+        Sets the minimum pulse length of a servo. Expects the 0-indexed servo ID and
+        the minimum pulse length between 0 and 1000 non-inclusive.
+
+        As of writing, the PCC firmware limits this to 150.
+        https://github.com/bellflight/AVR-PCC-Firmware/blob/main/libraries/AVR_ServoDriver/avr_servo.hpp
         """
 
         valid_command = False
@@ -171,8 +174,11 @@ class PeripheralControlComputer:
 
     def set_servo_max(self, servo: int, maximum: float) -> None:
         """
-        Sets the maximum pulse width of a servo. Expects the 0-indexed servo ID and
-        the maximum pulse width between 0 and 1000 non-inclusive.
+        Sets the maximum pulse length of a servo. Expects the 0-indexed servo ID and
+        the maximum pulse length between 0 and 1000 non-inclusive.
+
+        As of writing, the PCC firmware limits this to 425.
+        https://github.com/bellflight/AVR-PCC-Firmware/blob/main/libraries/AVR_ServoDriver/avr_servo.hpp
         """
 
         valid_command = False
@@ -220,7 +226,10 @@ class PeripheralControlComputer:
     def set_servo_abs(self, servo: int, absolute: int) -> None:
         """
         Sets the absolute position of a servo. Expects the 0-indexed servo ID and
-        the absolute position.
+        the absolute position, which is really the microsecond length of the pulse.
+
+        As of writing, the PCC firmware limits this to between 600 and 2400.
+        https://github.com/bellflight/AVR-PCC-Firmware/blob/main/libraries/AVR_ServoDriver/avr_servo.hpp
         """
 
         valid_command = False
