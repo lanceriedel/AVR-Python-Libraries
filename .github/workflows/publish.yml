@@ -9,6 +9,11 @@ on:
 jobs:
   pypi-publish:
     runs-on: ubuntu-latest
+    permissions:
+      # IMPORTANT: this permission is mandatory for trusted publishing
+      id-token: write
+      contents: write
+
     if: "${{!contains(github.event.head_commit.message, 'ci skip') && !contains(github.event.head_commit.message, 'pypi skip')}}"
 
     steps:
@@ -30,7 +35,7 @@ jobs:
           pipx install vscode-task-runner
 
       - name: Install Python Dependencies
-        run: vtr poetry-install-all
+        run: vtr poetry-install
 
       - name: Build Package
         run: vtr build
