@@ -29,6 +29,9 @@ jobs:
           pipx install poetry
           pipx install vscode-task-runner
 
+      - name: Install Python Dependencies
+        run: vtr poetry-install-all
+
       - name: Build Package
         run: vtr build
 
