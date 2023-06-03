@@ -1,6 +1,6 @@
 import base64
 import zlib
-from typing import List, TypedDict
+from typing import List, Protocol, TypedDict, Union
 
 import numpy as np
 
@@ -42,6 +42,12 @@ class ImageData(TypedDict):
     """
 
 
+class _ImageDataProtocol(Protocol):
+    data: str
+    shape: List[int]
+    compressed: bool
+
+
 def serialize_image(image: np.ndarray, compress: bool = False) -> ImageData:
     """
     Takes a numpy array of image data, and transforms it into format that can
@@ -73,15 +79,26 @@ def serialize_image(image: np.ndarray, compress: bool = False) -> ImageData:
     return image_data
 
 
-def deserialize_image(image_data: ImageData) -> np.ndarray:
+def deserialize_image(image_data: Union[ImageData, _ImageDataProtocol]) -> np.ndarray:
     """
     Given an `ImageData` object, will reconstruct the original numpy array.
+    Additionally, an object that has `.data`, `.compressed` and `.shape`
+    attributes is allowed.
     """
+    if isinstance(image_data, dict):
+        data = image_data["data"]
+        compressed = image_data["compressed"]
+        shape = image_data["shape"]
+    else:
+        data = image_data.data
+        compressed = image_data.compressed
+        shape = image_data.shape
+
     # convert the string to bytes, and then undo the base64
-    image_bytes = base64.b64decode(image_data["data"].encode("utf-8"))
+    image_bytes = base64.b64decode(data.encode("utf-8"))
 
     # decompress with zlib
-    if image_data["compressed"]:
+    if compressed:
         image_bytes = zlib.decompress(image_bytes)
 
     # convert bytes to a byte array
@@ -89,4 +106,4 @@ def deserialize_image(image_data: ImageData) -> np.ndarray:
     # convert the byte array back into a numpy array
     image_array = np.array(image_byte_array)
 
-    return np.reshape(image_array, image_data["shape"])
+    return np.reshape(image_array, shape)
