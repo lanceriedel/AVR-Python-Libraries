@@ -9,3 +9,5 @@ RUN apt-get update -y \
 
 # update npm
 RUN npm install -g npm
+# install vscode-task-runner
+RUN pip install vscode-task-runner
