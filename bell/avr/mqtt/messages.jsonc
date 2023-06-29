@@ -315,6 +315,13 @@
                     ]
                 },
                 {
+                    "key": "abs_alt",
+                    "type": "float",
+                    "docs": [
+                        "MSL ALtitude in meters"
+                    ]
+                },
+                {
                     "key": "hdg",
                     "type": "float",
                     "docs": [
@@ -348,6 +355,13 @@
                     "type": "float",
                     "docs": [
                         "Altitude relative to the home position in meters"
+                    ]
+                },
+                {
+                    "key": "abs_alt",
+                    "type": "float",
+                    "docs": [
+                        "MSL Altitude of the home position in meters"
                     ]
                 }
             ]
