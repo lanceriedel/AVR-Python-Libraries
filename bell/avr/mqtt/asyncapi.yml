@@ -674,11 +674,11 @@ components:
         AVRFCMGoToLocal:
             payload:
                 type: object
+                description: Position to go to in local coordinates. If `d` or `hdg` are omitted, the current position value will be used instead. If `relative` is omitted, the coordinates are assumed to absolute (relative to the home position).
                 additionalProperties: false
                 required:
                     - "n"
                     - e
-                    - d
                 properties:
                     "n":
                         $ref: "#/components/schemas/n_meters"
@@ -703,7 +703,7 @@ components:
                 properties:
                     waypoints:
                         type: array
-                        description: Either `n`, `e`, and `d` must be provided, or `lat`, `lon`, and `abs_alt` must be provided. Only the first waypoint may be a "TAKEOFF" waypoint, and that waypoint may omit an X and Y coordinate.
+                        description: Either `n`, `e`, and `d` must be provided, or `lat`, `lon`, and `abs_alt` must be provided. `n`, `e` and `d` represent local coordinates, while `lat`, `lon`, and `abs_alt` represent global (GPS) coordinates. Only the first waypoint may be a "TAKEOFF" waypoint, and that waypoint may omit an X and Y coordinate.
                         items:
                             type: object
                             additionalProperties: false
