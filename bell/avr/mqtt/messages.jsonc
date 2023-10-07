@@ -1,6 +1,29 @@
 {
     "$schema": "schema.json",
     "messages": [
+
+        {
+            "topic": "avr/pcm/stepper/move",
+            "docs": [
+                "move stepper with dir, steps"
+            ],
+            "payload": [
+                {
+                    "key": "steps",
+                    "type": "int",
+                    "docs": [
+                        "The number of steps"
+                    ]
+                },
+                {
+                    "key": "direction",
+                    "type": "Literal[\"U\", \"D\",\"L\", \"R\"]",
+                    "docs": [
+                        "U = up D = down L = left R = right."
+                    ]
+                }
+            ]
+        },
         // #region pcm
         {
             "topic": "avr/pcm/set_base_color",
